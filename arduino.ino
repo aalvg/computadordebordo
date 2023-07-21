@@ -51,8 +51,8 @@ void setup() {
     lcd.print("Boa noite!");
   }
 
-  lcd.setCursor(0, 3);
-  lcd.print("21 de Julho 2023");
+  lcd.setCursor(0, 4);
+  lcd.print("Uno Mille");
   delay(4000);
   lcd.clear();
 
