@@ -3,11 +3,14 @@
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <RTClib.h>
+#include <Adafruit_AHTX0.h>
 
 RTC_DS3231 rtc;
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 byte a[8] = {B00110, B01001, B00110, B00000, B00000, B00000, B00000, B00000};
+
+Adafruit_AHTX0 aht;
 
 const int buttonPin = 3;
 int buttonState = HIGH;
@@ -26,11 +29,11 @@ void setup() {
   Serial.begin(9600); // Inicializa a porta serial
   rtc.begin();
   lcd.backlight(); // Liga o backlight do LCD
-
+  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   if (rtc.lostPower()) {
     Serial.println("RTC perdeu energia, ajuste a data e hora!");
     // Aqui você pode definir a data e hora padrão após o RTC perder energia
-    //rtc.adjust(DateTime(2023, 7, 20, 14, 17, 00));
+    rtc.adjust(DateTime(2023, 7, 21, 23, 33, 41));
   }
 
   setSyncProvider(getTeensy3Time); // Configura o RTC como o provedor de tempo
@@ -44,20 +47,31 @@ void setup() {
 
   // Verifica o horário atual para decidir se é "Bom dia" ou "Boa noite"
   int currentHour = hour();
-  lcd.setCursor(4, 0);
-  if (currentHour >= 0 && currentHour <= 11) {
+  lcd.setCursor(3, 0);
+  if (currentHour >= 0 && currentHour <= 5) {
+    lcd.print("Boa Madrugada!");
+  } 
+  if (currentHour >= 6 && currentHour <= 11) {
     lcd.print("Bom dia!");
-  } else {
+  }
+  if (currentHour >= 12 && currentHour <= 17) {
+    lcd.print("Boa Tarde!");
+  }else {
     lcd.print("Boa noite!");
   }
 
-  lcd.setCursor(0, 4);
+  lcd.setCursor(0, 3);
   lcd.print("Uno Mille");
   delay(4000);
   lcd.clear();
 
   // Configuração do botão
   pinMode(buttonPin, INPUT_PULLUP);
+
+    // Inicialização do módulo AHT21
+  if (!aht.begin()) {
+    Serial.println("Falha ao iniciar o AHT21!");
+  }
 }
 
 void showVoltmeterScreen() {
@@ -102,6 +116,20 @@ void showVoltmeterScreen() {
   }
 }
 
+void showTemperatureAndHumidity() {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  
+  sensors_event_t humidity, temp;
+  aht.getEvent(&humidity, &temp);
+  lcd.print(temp.temperature, 2); // Exibe a temperatura com 2 casas decimais
+  lcd.print(" C");
+
+  lcd.setCursor(0, 1);
+  lcd.print("Umidade: ");
+  lcd.print(humidity.relative_humidity, 2); // Exibe a umidade com 2 casas decimais
+  lcd.print(" %");
+}
 
 
 
@@ -136,6 +164,9 @@ void loop() {
 
   lastButtonState = reading;
 
+  sensors_event_t humidity, temp;
+  aht.getEvent(&humidity, &temp);
+
   if (!inVoltmeterScreen) {
     // Tela do RTC
     static time_t tLast;
@@ -143,9 +174,6 @@ void loop() {
     t = now();
     if (t != tLast) {
       tLast = t;
-
-      float c = rtc.getTemperature() / 4.0;
-
       lcd.setCursor(0, 0);
       lcd.print(day());
       lcd.print("/");
@@ -153,7 +181,8 @@ void loop() {
       lcd.print("/");
       lcd.print(year());
       lcd.print(" ");
-      lcd.print(c);
+      lcd.print(temp.temperature, 1);// Exibe a temperatura com 2 casas decimais
+      lcd.print("c");
       lcd.createChar(1, a);
       lcd.setCursor(15, 0);
       lcd.write(1);
@@ -163,6 +192,11 @@ void loop() {
       lcd.print(minute());
       lcd.print(":");
       lcd.print(second());
+      lcd.print(" ");
+      lcd.print("Ar");
+      lcd.print(" ");
+      lcd.print(humidity.relative_humidity, 1); // Exibe a umidade com 2 casas decimais
+      lcd.print(" %");
     }
   }
 
@@ -200,4 +234,3 @@ void adjustDateTime() {
 
   Serial.println("Data e hora ajustadas com sucesso!");
 }
-
